@@ -1,0 +1,5 @@
+- name: Deploy the oslf application
+  include_tasks:
+      file: deploy.yml
+  tags:
+      - oslf.deploy

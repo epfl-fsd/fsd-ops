@@ -1,0 +1,6 @@
+app:
+    registry: ghcr.io/epfl-fsd
+    name: oslf
+    version: 0.7.0
+
+secrets: "{{ lookup('pipe', 'keybase fs read /keybase/team/epfl_idevfsd/oslf/secrets.yml') | from_yaml }}"
