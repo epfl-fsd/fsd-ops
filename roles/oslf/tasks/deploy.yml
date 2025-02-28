@@ -23,6 +23,9 @@
       metadata:
         name: "{{ app.name }}"
         namespace: "{{ openshift_namespace }}"
+        labels:
+          app: "{{ app.name }}"
+          route: public
         annotations:
           nginx.ingress.kubernetes.io/rewrite-target: /
           kubernetes.io/ingress.class: nginx
@@ -39,6 +42,28 @@
                       name: "{{ app.name }}"
                       port:
                         number: 80
+
+- name: Create Route
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: "{{ app.name }}"
+        namespace: "{{ openshift_namespace }}"
+        labels:
+          app: "{{ app.name }}"
+          route: public
+      spec:
+        host: "{{ app.name }}.{{ domain }}"
+        to:
+          kind: Service
+          name: "{{ app.name }}"
+        port:
+          targetPort: "{{ app.name }}-svc-port"
+        tls:
+          termination: edge
+          insecureEdgeTerminationPolicy: Redirect
 
 - name: Create Secret
   kubernetes.core.k8s:
