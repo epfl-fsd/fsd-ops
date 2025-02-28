@@ -40,6 +40,19 @@
                       port:
                         number: 80
 
+- name: Create Secret
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ app.name }}-secret"
+        namespace: "{{ openshift_namespace }}"
+      data:
+        API_USERNAME: "{{ secrets.API_USERNAME | b64encode }}"
+        API_PASSWORD: "{{ secrets.API_PASSWORD | b64encode }}"
+        API_URL: "{{ secrets.API_URL | b64encode }}"
+
 - name: Create Deployment
   kubernetes.core.k8s:
     definition:
@@ -68,6 +81,9 @@
                 name: "{{ app.name }}"
                 ports:
                   - containerPort: 3000
+                envFrom:
+                  - secretRef:
+                      name: "{{ app.name }}-secret"
                 resources:
                   requests:
                     cpu: "50m"
