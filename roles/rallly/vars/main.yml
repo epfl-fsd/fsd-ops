@@ -1,0 +1,6 @@
+app_image: lukevella/rallly:3
+app_name: rallly
+app_host: date-test
+app_version: 3
+
+secrets: "{{ lookup('pipe', 'keybase fs read /keybase/team/epfl_idevfsd/fsd-ops/oslf/secrets.yml') | from_yaml }}"

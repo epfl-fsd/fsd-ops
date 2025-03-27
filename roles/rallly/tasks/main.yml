@@ -1,0 +1,11 @@
+- name: Deploy the postgres
+  include_tasks:
+      file: ./postgres.yml
+  tags:
+      - rallly.postgres
+
+- name: Deploy the web
+  include_tasks:
+      file: web.yml
+  tags:
+      - rallly.web

@@ -1,0 +1,49 @@
+- name: Generate random database username
+  ansible.builtin.set_fact:
+      db_user: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=20') }}"
+
+- name: Generate random database password
+  ansible.builtin.set_fact:
+      db_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=64') }}"
+
+- name: Set database name
+  ansible.builtin.set_fact:
+      db_name: '{{ app_name }}_db'
+
+- name: Encode database credentials in base64
+  ansible.builtin.set_fact:
+      db_user_b64: '{{ db_user | b64encode }}'
+      db_password_b64: '{{ db_password | b64encode }}'
+      db_name_b64: '{{ db_name | b64encode }}'
+
+- name: Create database secret with random credentials
+  kubernetes.core.k8s:
+      state: present
+      definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+              name: '{{ app_name }}-db-credentials'
+              namespace: '{{ openshift_namespace }}'
+          type: Opaque
+          data:
+              username: '{{ db_user_b64 }}'
+              password: '{{ db_password_b64 }}'
+              database: '{{ db_name_b64 }}'
+
+- name: Create database and user in PostgreSQL cluster
+  kubernetes.core.k8s:
+      state: present
+      definition:
+          apiVersion: postgresql.cnpg.io/v1
+          kind: Database
+          metadata:
+              name: '{{ app_name }}-database'
+              namespace: '{{ openshift_namespace }}'
+          spec:
+              cluster:
+                  name: postgres-cluster
+              name: '{{ db_name }}'
+              owner: '{{ db_user }}'
+              ownerSecret:
+                  name: '{{ app_name }}-db-credentials'

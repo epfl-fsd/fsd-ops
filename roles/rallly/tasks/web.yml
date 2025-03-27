@@ -1,0 +1,145 @@
+- name: Get PostgreSQL credentials from secret
+  kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Secret
+      name: '{{ app_name }}-db-credentials'
+      namespace: '{{ openshift_namespace }}'
+  register: db_secret
+
+- name: Echo PostgreSQL credentials
+  debug:
+      msg: '{{ db_secret }}'
+
+- name: Set PostgreSQL connection string
+  set_fact:
+      pg_connection_string: >-
+          postgres://{{ db_secret.resources[0].data.username | b64decode }}:{{ db_secret.resources[0].data.password | b64decode }}@postgres-cluster.{{ openshift_namespace }}.svc.cluster.local:5432/{{ db_secret.resources[0].data.database | b64decode }}
+
+- name: Create connection string secret
+  kubernetes.core.k8s:
+      state: present
+      definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+              name: '{{ app_name }}-db-connection'
+              namespace: '{{ openshift_namespace }}'
+          type: Opaque
+          stringData:
+              DATABASE_URL: '{{ pg_connection_string }}'
+
+- name: Create Service
+  kubernetes.core.k8s:
+      definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+              name: '{{ app_name }}'
+              namespace: '{{ openshift_namespace }}'
+          spec:
+              selector:
+                  app: '{{ app_name }}'
+              ports:
+                  - name: http
+                    protocol: TCP
+                    port: 80
+                    targetPort: 3000
+
+- name: Create Ingress
+  kubernetes.core.k8s:
+      definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+              name: '{{ app_name }}'
+              namespace: '{{ openshift_namespace }}'
+              labels:
+                  app: '{{ app_name }}'
+                  route: public
+              annotations:
+                  nginx.ingress.kubernetes.io/rewrite-target: '/'
+                  kubernetes.io/ingress.class: nginx
+                  nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+          spec:
+              rules:
+                  - host: '{{ app_name }}.{{ domain }}'
+                    http:
+                        paths:
+                            - path: '/'
+                              pathType: Prefix
+                              backend:
+                                  service:
+                                      name: '{{ app_name }}'
+                                      port:
+                                          number: 80
+
+- name: Create OpenShift Route
+  kubernetes.core.k8s:
+      definition:
+          apiVersion: route.openshift.io/v1
+          kind: Route
+          metadata:
+              name: '{{ app_name }}'
+              namespace: '{{ openshift_namespace }}'
+              labels:
+                  app: '{{ app_name }}'
+                  route: public
+          spec:
+              host: '{{ app_host }}.{{ domain }}'
+              to:
+                  kind: Service
+                  name: '{{ app_name }}'
+              port:
+                  targetPort: http
+              tls:
+                  termination: edge
+                  insecureEdgeTerminationPolicy: Redirect
+
+- name: Deploy Application
+  kubernetes.core.k8s:
+      definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+              name: '{{ app_name }}'
+              namespace: '{{ openshift_namespace }}'
+          spec:
+              replicas: 2
+              strategy:
+                  type: RollingUpdate
+                  rollingUpdate:
+                      maxUnavailable: 1
+              selector:
+                  matchLabels:
+                      app: '{{ app_name }}'
+              template:
+                  metadata:
+                      labels:
+                          app: '{{ app_name }}'
+                  spec:
+                      containers:
+                          - name: '{{ app_name }}'
+                            image: '{{ app_image }}'
+                            imagePullPolicy: Always
+                            ports:
+                                - containerPort: 3000
+                            envFrom:
+                                - secretRef:
+                                      name: '{{ app_name }}-db-connection'
+                            resources:
+                                requests:
+                                    cpu: '50m'
+                                    memory: '64Mi'
+                                limits:
+                                    cpu: '100m'
+                                    memory: '128Mi'
+                            readinessProbe:
+                                tcpSocket:
+                                    port: 3000
+                                initialDelaySeconds: 5
+                                timeoutSeconds: 3
+                            livenessProbe:
+                                tcpSocket:
+                                    port: 3000
+                                initialDelaySeconds: 5
+                                timeoutSeconds: 3
