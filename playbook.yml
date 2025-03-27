@@ -1,3 +1,11 @@
+- name: cluster
+  hosts: all
+  roles:
+      - role: roles/cluster
+  tags:
+      - deploy
+      - cluster
+
 - name: oslf
   hosts: all
   roles:
@@ -5,3 +13,19 @@
   tags:
       - deploy
       - oslf
+
+- name: rallly
+  hosts: all
+  roles:
+      - role: roles/rallly
+  tags:
+      - deploy
+      - rallly
+
+- name: outline
+  hosts: all
+  roles:
+      - role: roles/outline
+  tags:
+      - deploy
+      - outline
