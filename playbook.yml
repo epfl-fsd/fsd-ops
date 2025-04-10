@@ -29,3 +29,11 @@
   tags:
       - deploy
       - outline
+
+- name: umami
+  hosts: all
+  roles:
+      - role: roles/umami
+  tags:
+      - deploy
+      - umami
