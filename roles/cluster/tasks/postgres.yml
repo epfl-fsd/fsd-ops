@@ -25,3 +25,9 @@
                         superuser: false
                         passwordSecret:
                             name: outlinewiki-db-credentials
+                      - name: umami-user
+                        ensure: present
+                        login: true
+                        superuser: false
+                        passwordSecret:
+                          name: umami-db-credentials
