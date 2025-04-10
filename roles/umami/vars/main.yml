@@ -1,0 +1,7 @@
+registry: quay-its.epfl.ch
+organisation: svc0176
+image: umami
+version: 2.11.3
+app: umami
+subdomain: umami
+db_host: postgres-cluster-rw
