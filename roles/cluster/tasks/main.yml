@@ -1,19 +1,35 @@
 - name: Deploy NFS
-  include_tasks: nfs.yml
+  include_tasks:
+    file: nfs.yml
+    apply:
+      tags:
+        - cluster.nfs
   tags:
     - cluster.nfs
 
 - name: Deploy PostgreSQL
-  include_tasks: postgres.yml
+  include_tasks:
+    file: postgres.yml
+    apply:
+      tags:
+        - cluster.postgres
   tags:
     - cluster.postgres
 
 - name: Deploy MariaDB
-  include_tasks: mariadb.yml
+  include_tasks:
+    file: mariadb.yml
+    apply:
+      tags:
+        - cluster.mariadb
   tags:
     - cluster.mariadb
 
 - name: Deploy Secrets
-  include_tasks: secrets.yml
+  include_tasks:
+    file: secrets.yml
+    apply:
+      tags:
+        - cluster.secrets
   tags:
     - cluster.secrets
