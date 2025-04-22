@@ -1,0 +1,8 @@
+registry: quay.io
+organisation: hedgedoc
+image: hedgedoc
+version: 1.10.3
+app: hedgedoc
+subdomain: hedgedoc
+db_host: postgres-cluster-rw
+secrets: "{{ lookup('pipe', 'keybase fs read /keybase/team/epfl_idevfsd/fsd-ops/hedgedoc/secrets.yml') | from_yaml }}"

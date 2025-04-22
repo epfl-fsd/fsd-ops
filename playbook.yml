@@ -29,3 +29,11 @@
   tags:
       - deploy
       - outline
+
+- name: hedgedoc
+  hosts: all
+  roles:
+      - role: roles/hedgedoc
+  tags:
+      - deploy
+      - hedgedoc
