@@ -29,3 +29,11 @@
   tags:
       - deploy
       - outline
+
+- name: tracim
+  hosts: all
+  roles:
+      - role: roles/tracim
+  tags:
+      - deploy
+      - tracim

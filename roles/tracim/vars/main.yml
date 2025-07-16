@@ -1,0 +1,9 @@
+registry: hub.docker.com
+organisation: algoo
+image: tracim
+version: build_164
+app: tracim
+subdomain: tracim
+db_host: postgres-cluster-rw
+
+secrets: "{{ lookup('pipe', 'keybase fs read /keybase/team/epfl_idevfsd/fsd-ops/tracim/secrets.yml') | from_yaml }}"

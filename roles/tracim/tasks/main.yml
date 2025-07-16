@@ -1,0 +1,17 @@
+- name: Deploy PostgreSQL
+  include_tasks:
+    file: postgres.yml
+    apply:
+      tags:
+        - tracim.postgres
+  tags:
+    - tracim.postgres
+
+- name: Deploy Web Application
+  include_tasks:
+    file: web.yml
+    apply:
+      tags:
+        - tracim.web
+  tags:
+    - tracim.web

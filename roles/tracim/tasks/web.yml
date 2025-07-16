@@ -1,0 +1,194 @@
+- name: Retrieve Database Credentials
+  kubernetes.core.k8s_info:
+    kind: Secret
+    namespace: "{{ openshift_namespace }}"
+    name: "{{ app }}-db-credentials"
+  register: db_secret
+
+- name: Set Database Variables
+  ansible.builtin.set_fact:
+    db:
+      name: "{{ db_secret.resources[0].data.database | b64decode }}"
+      user: "{{ db_secret.resources[0].data.username | b64decode }}"
+      password: "{{ db_secret.resources[0].data.password | b64decode }}"
+
+- name: Create Service
+  kubernetes.core.k8s:
+      definition:
+        apiVersion: v1
+        kind: Service
+        metadata:
+            name: "{{ app }}"
+            namespace: "{{ openshift_namespace }}"
+        spec:
+          selector:
+              app: "{{ app }}"
+          ports:
+            - name: "{{ app }}-svc-port"
+              protocol: TCP
+              port: 80
+              targetPort: 3000
+
+- name: Create tracim PVC
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ app }}-tracim-data"
+        namespace: "{{ openshift_namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+
+- name: Create tracim PVC
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ app }}-tracim-config"
+        namespace: "{{ openshift_namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+
+- name: Create Ingress
+  kubernetes.core.k8s:
+      definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+              name: "{{ app }}"
+              namespace: "{{ openshift_namespace }}"
+              labels:
+                  app: "{{ app }}"
+                  route: public
+              annotations:
+                  nginx.ingress.kubernetes.io/rewrite-target: /
+                  kubernetes.io/ingress.class: nginx
+                  nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          spec:
+              rules:
+                  - host: "{{ app }}.{{ domain }}"
+                    http:
+                        paths:
+                            - path: /
+                              pathType: Prefix
+                              backend:
+                                  service:
+                                      name: "{{ app }}"
+                                      port:
+                                          number: 80
+
+- name: Create Route
+  kubernetes.core.k8s:
+      definition:
+          apiVersion: route.openshift.io/v1
+          kind: Route
+          metadata:
+              name: "{{ app }}"
+              namespace: "{{ openshift_namespace }}"
+              labels:
+                  app: "{{ app }}"
+                  route: public
+          spec:
+              host: "{{ app }}.{{ domain }}"
+              to:
+                  kind: Service
+                  name: "{{ app }}"
+              port:
+                  targetPort: "{{ app }}-svc-port"
+              tls:
+                  termination: edge
+                  insecureEdgeTerminationPolicy: Redirect
+
+- name: Create Deployment
+  kubernetes.core.k8s:
+      definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+              name: "{{ app }}"
+              namespace: "{{ openshift_namespace }}"
+          spec:
+              replicas: 1
+              strategy:
+                  type: RollingUpdate
+                  rollingUpdate:
+                      maxUnavailable: 1
+              selector:
+                  matchLabels:
+                      app: "{{ app }}"
+              template:
+                  metadata:
+                      labels:
+                          app: "{{ app }}"
+                  spec:
+                      volumes:
+                          - name: yarn-cache
+                            emptyDir: {}
+                      containers:
+                          - image: "{{ organisation }}/{{ image }}:{{ version }}"
+                            imagePullPolicy: Always
+                            name: "{{ app }}"
+                            ports:
+                                - containerPort: 3000
+                            env:
+                            - name: DATABASE_TYPE
+                              value: postgresql
+                            - name: DATABASE_HOST
+                              value: '{{ openshift_namespace }}'
+                            - name: DATABASE_PORT
+                              value: "5432"
+                            - name: DATABASE_USER
+                              value: '{{ db.user }}'
+                            - name: DATABASE_PASSWORD
+                              value: '{{ db.password }}'
+                            - name: DATABASE_NAME
+                              value: '{{ db.name }}'
+                            - name: START_WEBDAV
+                              value: "0"
+                            - name: REPLY_BY_EMAIL
+                              value: "0"
+                            # envFrom:
+                            #     - secretRef:
+                            #           name: "{{ app }}-secrets"
+                            resources:
+                                requests:
+                                  cpu: 50m
+                                  memory: 128Mi
+                                limits:
+                                  cpu: 200m
+                                  memory: 512Mi
+                            readinessProbe:
+                                tcpSocket:
+                                    port: 3000
+                                initialDelaySeconds: 5
+                                timeoutSeconds: 3
+                            livenessProbe:
+                                tcpSocket:
+                                    port: 3000
+                                initialDelaySeconds: 5
+                                timeoutSeconds: 3
+                            volumeMounts:
+                                - name: tracim-config
+                                  mountPath: /etc/tracim
+                                - name: tracim-data
+                                  mountPath: /var/tracim
+                            volumeMounts:
+                            - name: tracim-config
+                              mountPath: /etc/tracim
+                      volumes:
+                        - name: tracim-data
+                          persistentVolumeClaim:
+                            claimName: "{{ app }}-tracim-data"
+                        - name: tracim-config
+                          persistentVolumeClaim:
+                            claimName: "{{ app }}-tracim-config"
