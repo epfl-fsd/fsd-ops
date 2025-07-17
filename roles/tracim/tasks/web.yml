@@ -27,15 +27,15 @@
             - name: "{{ app }}-svc-port"
               protocol: TCP
               port: 80
-              targetPort: 3000
+              targetPort: 80
 
-- name: Create tracim PVC
+- name: Create tracim PVC config
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        name: "{{ app }}-tracim-data"
+        name: "{{ app }}-config"
         namespace: "{{ openshift_namespace }}"
       spec:
         accessModes:
@@ -44,13 +44,13 @@
           requests:
             storage: 1Gi
 
-- name: Create tracim PVC
+- name: Create tracim PVC data
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        name: "{{ app }}-tracim-config"
+        name: "{{ app }}-data"
         namespace: "{{ openshift_namespace }}"
       spec:
         accessModes:
@@ -131,15 +131,12 @@
                       labels:
                           app: "{{ app }}"
                   spec:
-                      volumes:
-                          - name: yarn-cache
-                            emptyDir: {}
                       containers:
-                          - image: "{{ organisation }}/{{ image }}:{{ version }}"
+                          - image: "{{ registry }}/{{ organisation }}/{{ image }}:{{ version }}"
                             imagePullPolicy: Always
                             name: "{{ app }}"
                             ports:
-                                - containerPort: 3000
+                                - containerPort: 80
                             env:
                             - name: DATABASE_TYPE
                               value: postgresql
@@ -169,26 +166,27 @@
                                   memory: 512Mi
                             readinessProbe:
                                 tcpSocket:
-                                    port: 3000
+                                    port: 80
                                 initialDelaySeconds: 5
                                 timeoutSeconds: 3
                             livenessProbe:
                                 tcpSocket:
-                                    port: 3000
+                                    port: 80
                                 initialDelaySeconds: 5
                                 timeoutSeconds: 3
                             volumeMounts:
                                 - name: tracim-config
                                   mountPath: /etc/tracim
+                                  readOnly: false
                                 - name: tracim-data
                                   mountPath: /var/tracim
-                            volumeMounts:
-                            - name: tracim-config
-                              mountPath: /etc/tracim
+                                  readOnly: false
                       volumes:
                         - name: tracim-data
                           persistentVolumeClaim:
-                            claimName: "{{ app }}-tracim-data"
+                            claimName: "{{ app }}-data"
                         - name: tracim-config
                           persistentVolumeClaim:
-                            claimName: "{{ app }}-tracim-config"
+                            claimName: "{{ app }}-config"
+                      imagePullSecrets:
+                        - name: svc0176-pull-secret
